@@ -2,7 +2,7 @@ name: CI Build all products
 
 on:
   workflow_call:
-  workflow_dispatch: # <-- allows manual run from GitHub Actions UI
+  workflow_dispatch: # allows manual run from GitHub Actions UI
 
 permissions:
   packages: read
@@ -27,7 +27,7 @@ jobs:
           ROOT=~/b
           ROOT_REPO="$ROOT/$PROGRAM"
           ROOT_DEP="$ROOT/dep"
-          JOB_SLOTS=$(nproc --all);
+          JOB_SLOTS=$(nproc --all)
           
           # Share with other steps
           echo "ROOT_REPO=$ROOT_REPO" >> "$GITHUB_ENV"
@@ -38,8 +38,15 @@ jobs:
           mkdir -p "$ROOT_REPO" && cd "$_" || exit 1
           git init .
           git config core.symlinks true
-          git remote add origin ${{ github.event.pull_request.head.repo.clone_url }}
-          git pull origin ${{ github.event.pull_request.head.ref }} --depth=1
+          
+          if [[ -n "${{ github.event.pull_request.head.repo.clone_url }}" && -n "${{ github.event.pull_request.head.ref }}" ]]; then
+            git remote add origin ${{ github.event.pull_request.head.repo.clone_url }}
+            git pull origin ${{ github.event.pull_request.head.ref }} --depth=1
+          else
+            git remote add origin https://github.com/${{ github.repository }}.git
+            git pull origin ${{ github.ref_name }} --depth=1
+          fi
+          
           git submodule update --jobs=$JOB_SLOTS --init --depth=1
 
       - name: Dependencies
@@ -62,4 +69,4 @@ jobs:
           PLATFORM= # clear out, some other scripts consider this variable
           
           chmod +x "$BUILD_SCRIPT"
-          $BUILD_SCRIPT "$ROOT_DEP" $JOB_SLOTS
+          "$BUILD_SCRIPT" "$ROOT_DEP" $JOB_SLOTS
